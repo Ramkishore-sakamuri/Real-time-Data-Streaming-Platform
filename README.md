@@ -41,27 +41,24 @@ This project demonstrates a real-time data streaming platform using Python, Apac
     ```
 
 5.  **Submit the PyFlink Job:**
-    The Flink job (`flink_processor.py`) is mounted into the Flink containers. You need to submit it to the running Flink cluster.
+    The Flink job (`flink_processor.py`) is mounted into the Flink containers at `/opt/flink/usrlib/flink_processor.py`.
     
-    Find the JobManager container ID:
-    ```bash
-    docker ps
-    ```
-    Then submit the job (replace `jobmanager_container_id` with the actual ID or name `jobmanager`):
+    To submit the job to the running Flink cluster, use `docker exec`:
     ```bash
     docker exec -it jobmanager /opt/flink/bin/flink run \
-        -py /opt/flink/usrlib/flink_processor.py \
-        -pym /opt/flink.usrlib.flink_processor # If flink_processor.py contains a main entry point
-        # Or if your entry point is not a module:
-        # -py /opt/flink/usrlib/flink_processor.py
-        # Check PyFlink documentation for the most current submission syntax.
-        # For PyFlink 1.17+, just specifying the python file is often enough if it has a `if __name__ == '__main__':` block.
+        --python /opt/flink/usrlib/flink_processor.py \
+        --pyFiles /opt/flink/usrlib/ # If you have other .py files in that dir to be added to PYTHONPATH
+                                      # For a single file job, --python is often enough.
+                                      # Ensure your flink_processor.py has the main execution block:
+                                      # if __name__ == '__main__':
+                                      #     run_flink_job()
     ```
-    Alternatively, for simpler execution if your `flink_processor.py` is self-contained:
+    A simpler command for a single Python file job:
     ```bash
-    docker exec -it jobmanager /opt/flink/bin/flink run -d -py /opt/flink/usrlib/flink_processor.py
+    docker exec -it jobmanager /opt/flink/bin/flink run -d --python /opt/flink/usrlib/flink_processor.py
     ```
-    Monitor the Flink UI (`http://localhost:8081`) to see if the job is running. You might need to adjust paths or submission commands based on your exact PyFlink version and how it expects entry points. The `flink_processor.py` has a `if __name__ == '__main__'` which might be picked up by `flink run`.
+    The `-d` flag runs the job in detached mode.
+    Monitor the Flink Web UI (`http://localhost:8081`) under "Running Jobs" to see if the job is running and check its logs.
 
 6.  **Run the IoT Data Producer:**
     In a new terminal:
