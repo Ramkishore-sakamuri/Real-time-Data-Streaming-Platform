@@ -22,7 +22,7 @@ Python or Java development
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your_repository_url>
+    git clone <(https://github.com/Ramkishore-sakamuri/Real-time-Data-Streaming-Platform/tree/main)>
     cd realtime-data-platform
     ```
 
