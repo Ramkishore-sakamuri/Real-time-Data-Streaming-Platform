@@ -20,7 +20,7 @@ This project builds upon the basic framework to incorporate more advanced featur
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your_repository_url>
+    git clone https://github.com/Ramkishore-sakamuri/Real-time-Data-Streaming-Platform
     cd realtime-data-platform
     ```
 
