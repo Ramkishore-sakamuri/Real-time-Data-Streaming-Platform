@@ -1,14 +1,18 @@
 import time
 import random
 from confluent_kafka import Producer
+from uuid import uuid4
 
 # Kafka broker configuration
 bootstrap_servers = 'localhost:9092'
-topic = 'sensor_data'
+topic = 'sensor_data_tx'
+transactional_id = 'sensor-producer-' + str(uuid4())
 
 # Kafka Producer configuration
 producer_config = {
-    'bootstrap.servers': bootstrap_servers
+    'bootstrap.servers': bootstrap_servers,
+    'transactional.id': transactional_id,
+    'enable.idempotence': True  # Recommended for transactional producers
 }
 
 producer = Producer(producer_config)
@@ -36,13 +40,23 @@ def simulate_sensor_data():
 
 if __name__ == '__main__':
     try:
+        producer.init_transactions()
         while True:
-            data = simulate_sensor_data()
-            print(f"Producing: {data}")
-            producer.produce(topic, key=data['sensor_id'].encode('utf-8'), value=str(data).encode('utf-8'), callback=delivery_report)
-            producer.poll(0.1)  # Serve delivery reports
-            time.sleep(1)
+            producer.begin_transaction()
+            try:
+                for _ in range(random.randint(1, 3)):  # Send a small batch in each transaction
+                    data = simulate_sensor_data()
+                    print(f"Producing (in transaction): {data}")
+                    producer.produce(topic, key=data['sensor_id'].encode('utf-8'), value=str(data).encode('utf-8'), callback=delivery_report)
+                    producer.poll(0.05)
+                producer.commit_transaction()
+                time.sleep(1)
+            except Exception as e:
+                producer.abort_transaction()
+                print(f"Error during transaction: {e}")
+                time.sleep(2)
     except KeyboardInterrupt:
         print("Stopping producer...")
     finally:
         producer.flush()
+        producer.close()
