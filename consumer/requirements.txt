@@ -1,1 +1,4 @@
 kafka-python==2.0.2
+# apache-flink==1.17.1 # This is for PyFlink job development/testing locally.
+                       # Not strictly needed by producer/consumer.
+                       # The Flink cluster gets PyFlink from its image.
