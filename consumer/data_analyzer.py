@@ -3,14 +3,15 @@ import json
 
 # Kafka broker configuration
 bootstrap_servers = 'localhost:9092'
-group_id = 'data_analyzer_group'
-topic = 'sensor_data'
+group_id = 'transactional_data_analyzer_group'
+topic = 'sensor_data_tx'
 
 # Kafka Consumer configuration
 consumer_config = {
     'bootstrap.servers': bootstrap_servers,
     'group.id': group_id,
-    'auto.offset.reset': 'earliest'  # Start consuming from the beginning if no previous offset exists
+    'auto.offset.reset': 'earliest',
+    'isolation.level': 'read_committed'  # Only read committed transactions
 }
 
 consumer = Consumer(consumer_config)
@@ -29,7 +30,7 @@ if __name__ == '__main__':
                 else:
                     print(f'Error receiving message: {msg.error()}')
             else:
-                print(f'Received message: {msg.value().decode("utf-8")}')
+                print(f'Received (committed) message: {msg.value().decode("utf-8")}')
     except KeyboardInterrupt:
         print("Stopping consumer...")
     finally:
