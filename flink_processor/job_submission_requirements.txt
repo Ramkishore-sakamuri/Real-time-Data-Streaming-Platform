@@ -1,0 +1,5 @@
+apache-flink==1.17.1
+# Add any other pure Python dependencies your Flink job's UDFs might need.
+# Example: numpy, pandas (if used in UDFs)
+# These will be installed in the Python environment of the Flink TaskManagers
+# if you specify a requirements file during job submission.
