@@ -1,9 +1,10 @@
 version: '3.8'
+
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0 # Use a specific stable version
+    image: confluentinc/cp-zookeeper:7.4.0
     hostname: zookeeper
-    container_name: zookeeper
+    container_name: zookeeper # Explicit container name
     ports:
       - "2181:2181"
     environment:
@@ -11,67 +12,71 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: confluentinc/cp-kafka:7.4.0 # Use a specific stable version
+    image: confluentinc/cp-kafka:7.4.0
     hostname: kafka
-    container_name: kafka
+    container_name: kafka # Explicit container name
     ports:
-      - "9092:9092"         # For internal Docker communication
-      - "29092:29092"       # For host access (producer/consumer scripts)
+      # Port for internal Docker network communication (e.g., Flink to Kafka)
+      - "9092:9092"
+      # Port for host access (e.g., local Python producer/consumer to Kafka)
+      - "29092:29092"
     depends_on:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      # Listeners: PLAINTEXT for internal, PLAINTEXT_HOST for external
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # For single-broker setup; increase for production
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # For exactly-once sinks
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false" # We will create topics manually
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1    # For exactly-once sinks
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # For single-broker; increase for production
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false" # Best practice: create topics explicitly
 
   jobmanager:
-    image: apache/flink:1.17.1-scala_2.12-java11 # PyFlink compatible version
+    image: apache/flink:1.17.1-scala_2.12-java11 # PyFlink 1.17.1 is compatible
     hostname: jobmanager
-    container_name: jobmanager
+    container_name: jobmanager # Explicit container name
     ports:
       - "8081:8081" # Flink Web UI
     command: jobmanager
     environment:
-      - JOB_MANAGER_RPC_ADDRESS=jobmanager
-      - FLINK_PROPERTIES=jobmanager.rpc.address: jobmanager
-      # Checkpointing configuration for exactly-once
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager # For TaskManagers to find JobManager
+      # Flink configurations via FLINK_PROPERTIES
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 2
-        state.backend: filesystem
-        state.checkpoints.dir: file:///opt/flink/checkpoints
+        taskmanager.numberOfTaskSlots: 2 
+        # State backend and checkpointing configuration for exactly-once
+        state.backend: filesystem 
+        # Checkpoints stored inside the container; mount a volume for persistence in prod
+        state.checkpoints.dir: file:///opt/flink/checkpoints 
         state.savepoints.dir: file:///opt/flink/savepoints
         execution.checkpointing.interval: 10s
         execution.checkpointing.mode: EXACTLY_ONCE
-        execution.checkpointing.min-pause: 5s
+        execution.checkpointing.min-pause: 5s 
         execution.checkpointing.timeout: 60s
         execution.checkpointing.max-concurrent-checkpoints: 1
-        execution.checkpointing.unaligned: false # Or true for specific scenarios
+        execution.checkpointing.unaligned: false 
         execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
     volumes:
-      - ./flink_processor:/opt/flink/usrlib # Mount Flink job code
-      # For persistent checkpoints (optional for local dev, crucial for prod)
-      # - flink_checkpoints:/opt/flink/checkpoints
-      # - flink_savepoints:/opt/flink/savepoints
+      # Mount the directory containing PyFlink job and any dependencies
+      - ./flink_processor:/opt/flink/usrlib 
+      # Example for persistent checkpoints (uncomment if needed for longer-term local dev)
+      # - flink_checkpoints_vol:/opt/flink/checkpoints
+      # - flink_savepoints_vol:/opt/flink/savepoints
 
   taskmanager:
     image: apache/flink:1.17.1-scala_2.12-java11
-    hostname: taskmanager
-    container_name: taskmanager
+    hostname: taskmanager # Not strictly necessary to set hostname for taskmanager here
+    container_name: taskmanager # Makes it easier to identify if multiple taskmanagers
     depends_on:
       - jobmanager
     command: taskmanager
     environment:
-      - JOB_MANAGER_RPC_ADDRESS=jobmanager
-      - FLINK_PROPERTIES=jobmanager.rpc.address: jobmanager
-      # Match properties with jobmanager for consistency
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager # For TaskManagers to find JobManager
+      # Consistent Flink configurations
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
@@ -80,12 +85,13 @@ services:
         state.checkpoints.dir: file:///opt/flink/checkpoints
         state.savepoints.dir: file:///opt/flink/savepoints
     volumes:
-      - ./flink_processor:/opt/flink/usrlib # Mount Flink job code
-      # - flink_checkpoints:/opt/flink/checkpoints
-      # - flink_savepoints:/opt/flink/savepoints
-    # deploy: # For scaling task managers
-    #   replicas: 1 # Start with 1, increase for more parallelism
+      # Mount the same directory for PyFlink job code
+      - ./flink_processor:/opt/flink/usrlib
+      # - flink_checkpoints_vol:/opt/flink/checkpoints # If using persistent volumes
+      # - flink_savepoints_vol:/opt/flink/savepoints  # If using persistent volumes
+    # deploy: # Uncomment and adjust for scaling task managers
+    #   replicas: 1
 
-# volumes: # Define if you want persistent storage for checkpoints
-#   flink_checkpoints:
-#   flink_savepoints:
+# volumes: # Define if you want persistent storage for checkpoints/savepoints
+#   flink_checkpoints_vol:
+#   flink_savepoints_vol:
