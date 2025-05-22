@@ -17,7 +17,7 @@ This project demonstrates a real-time data streaming platform using Python, Apac
 
 ## Setup and Execution
 
-1.  **Clone the repository 
+1.  **Clone the repository**
 
 2.  **Build and Start Docker Services:**
     Open a terminal in the project root and run:
